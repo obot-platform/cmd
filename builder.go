@@ -186,10 +186,14 @@ func command(obj Runnable, parentEnv string, children ...any) *cobra.Command {
 			switch fieldType.Tag.Get("split") {
 			case "false":
 				arrays[name] = v
-				flags.StringArrayP(name, alias, nil, usage)
+				flags.StringArrayP(name, alias, []string{defValue}, usage)
 			default:
 				slices[name] = v
-				flags.StringSliceP(name, alias, nil, usage)
+				var val []string
+				if len(defValue) > 0 {
+					val = strings.Split(defValue, ",")
+				}
+				flags.StringSliceP(name, alias, val, usage)
 			}
 		case reflect.Map:
 			switch fieldType.Tag.Get("boolmap") {
