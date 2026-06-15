@@ -148,11 +148,25 @@ func command(obj Runnable, parentEnv string, children ...any) *cobra.Command {
 		if usage == "-" {
 			continue
 		}
-		env := strings.Split(fieldType.Tag.Get("env"), ",")
-		defValue := fieldType.Tag.Get("default")
-		if len(env) == 1 && env[0] == "" {
-			env = []string{strings.ToUpper(strings.ReplaceAll(parentEnv+Name(obj)+"_"+name, "-", "_"))}
+		var env []string
+		for e := range strings.SplitSeq(fieldType.Tag.Get("env"), ",") {
+			if e = strings.TrimSpace(e); e != "" {
+				env = append(env, e)
+			}
 		}
+		env = append(env, strings.ToUpper(strings.ReplaceAll(parentEnv+Name(obj)+"_"+name, "-", "_")))
+
+		seenEnv := make(map[string]struct{}, len(env))
+		dedupedEnv := env[:0]
+		for _, e := range env {
+			if _, ok := seenEnv[e]; !ok {
+				seenEnv[e] = struct{}{}
+				dedupedEnv = append(dedupedEnv, e)
+			}
+		}
+		env = dedupedEnv
+
+		defValue := fieldType.Tag.Get("default")
 		defInt, err := strconv.Atoi(defValue)
 		if err != nil {
 			defInt = 0
@@ -163,7 +177,7 @@ func command(obj Runnable, parentEnv string, children ...any) *cobra.Command {
 		}
 
 		if len(env) > 0 {
-			usage += fmt.Sprintf(" ($%s)", strings.Join(env, ","))
+			usage += fmt.Sprintf(" ($%s)", strings.Join(env, ",$"))
 		}
 
 		usage = strings.TrimSpace(usage)
@@ -230,9 +244,9 @@ func command(obj Runnable, parentEnv string, children ...any) *cobra.Command {
 			panic("Unknown kind on field " + fieldType.Name + " on " + objValue.Type().Name())
 		}
 
-		for _, env := range env {
+		for _, e := range env {
 			envs = append(envs, func() {
-				v := os.Getenv(env)
+				v := os.Getenv(e)
 				if v != "" {
 					fv := flags.Lookup(name)
 					if fv != nil && !fv.Changed {
